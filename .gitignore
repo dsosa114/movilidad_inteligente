@@ -5,8 +5,9 @@
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
-# Local History for <a href="https://www.jcchouinard.com/python-with-vscode/">Visual Studio Code</a>
+# Local History and logs for <a href="https://www.jcchouinard.com/python-with-vscode/">Visual Studio Code</a>
 .history/
+log/*
  
 # Common credential files
 **/credentials.json
