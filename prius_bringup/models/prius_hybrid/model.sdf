@@ -855,7 +855,7 @@
         <max_velocity>100</max_velocity>
         <min_acceleration>-30</min_acceleration>
         <max_acceleration>30</max_acceleration>
-        <frame_id>ground_plane/link</frame_id>
+        
       </plugin>
       <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
         <joint_name>front_left_wheel_joint</joint_name>
