@@ -12,18 +12,6 @@
   <!-- Import all Gazebo-customization elements, including Gazebo colors -->
   <xacro:include filename="$(find qcar_description)/urdf/qcar.gazebo.xacro" />
 
-  <!-- Import Rviz colors -->
-  <!-- <xacro:include filename="$(find qcar_description)/urdf/qcar.materials.xacro" /> -->
-
-  <!-- Import diffbot ros2_control description -->
-  <!-- <xacro:include filename="$(find qcar_description)/ros2_control/qcar_system.ros2_control.xacro" /> -->
-  
-  <!-- Used for fixing robot -->
-  <!-- <link name="world"/> -->
-  <!-- <gazebo reference="world">
-    <static>false</static>
-  </gazebo> -->
-
   <xacro:QCar parent="world" prefix="$(arg prefix)">
     <origin xyz="0 0 0" rpy="0 0 0" />
   </xacro:QCar>
