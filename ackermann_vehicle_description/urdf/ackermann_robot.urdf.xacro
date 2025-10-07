@@ -4,8 +4,8 @@
 
     <xacro:arg name="robot_parameters_file" default="$(find ackermann_vehicle_description)/config/params.yaml"/>
 
-    <xacro:ackermann_robot robot_parameters_file="${robot_parameters_file}">
-
-    </xacro:ackermann_robot>
+    <xacro:ackermann_robot 
+        robot_parameters_file="${robot_parameters_file}"
+    />
 
 </robot>
