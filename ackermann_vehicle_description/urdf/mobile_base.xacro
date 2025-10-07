@@ -43,6 +43,31 @@
                 </geometry>
             </collision>
         </link>
+
+        <xacro:wheel_link prefix="rear_right"/>
+        <xacro:wheel_link prefix="rear_left"/>
+
+        
+        <joint name="base_joint" type="fixed">
+            <parent link="base_footprint"/>
+            <child link="base_link"/>
+            <origin xyz="0.0 0.0 ${wheel_radius}" rpy="0.0 0.0 0.0"/>
+        </joint>
+
+        <joint name="rear_right_wheel_joint" type="continuous">
+            <parent link="base_link"/>
+            <child link="rear_right_wheel_link"/>
+            <axis xyz="0 1 0"/>
+            <origin xyz="${-wheel_offset} ${-wheel_separation/2} 0" rpy="0 0 0"/>
+        </joint>
+
+        <joint name="rear_left_wheel_joint" type="continuous">
+            <parent link="base_link"/>
+            <child link="rear_left_wheel_link"/>
+            <axis xyz="0 1 0"/>
+            <origin xyz="${-wheel_offset} ${wheel_separation/2} 0" rpy="0 0 0"/>
+        </joint>
+        
         
 
     </xacro:macro>
