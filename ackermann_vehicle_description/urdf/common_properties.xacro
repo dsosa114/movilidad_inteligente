@@ -59,19 +59,19 @@
         <xacro:property name="base_height" value="${base_parameters['base_height']}" scope="parent"/>
         <xacro:property name="base_density" value="${base_parameters['base_density']}" scope="parent"/>
         <!-- Parameters for the wheels -->
-        <xacro:property name="wheel_radius" value="${wheel_parameters['wheel_radius']}" scope="parent"/>
+        <xacro:property name="wheel_radius" value="${wheel_parameters['wheel_radius']}" scope="global"/>
         <xacro:property name="wheel_width" value="${wheel_parameters['wheel_width']}" scope="parent"/>
         <xacro:property name="wheel_density" value="${wheel_parameters['wheel_density']}" scope="parent"/>
         <!-- Parameters for the steering -->
-        <xacro:property name="max_steering_angle" value="${steering_parameters['max_steering_angle']}" scope="parent"/>
+        <xacro:property name="max_steering_angle" value="${steering_parameters['max_steering_angle']}" scope="global"/>
         <xacro:property name="max_steering_angular_velocity" value="${steering_parameters['max_steering_angular_velocity']}" scope="parent"/>
-        <xacro:property name="max_velocity" value="${steering_parameters['max_velocity']}" scope="parent"/>
+        <xacro:property name="max_velocity" value="${steering_parameters['max_velocity']}" scope="global"/>
         <xacro:property name="max_effort" value="${steering_parameters['max_effort']}" scope="parent"/>
         <xacro:property name="max_steering_effort" value="${steering_parameters['max_steering_effort']}" scope="parent"/>
 
         <xacro:property name="base_mass" value="${base_density * base_length * base_height * base_width}" scope="parent"/>
-        <xacro:property name="wheel_separation" value="${base_width + wheel_width}" scope="parent"/>
-        <xacro:property name="wheel_offset" value="${base_length/2 - wheel_radius}" scope="parent"/>
+        <xacro:property name="wheel_separation" value="${base_width + wheel_width}" scope="global"/>
+        <xacro:property name="wheel_offset" value="${base_length/2 - wheel_radius}" scope="global"/>
         <xacro:property name="wheel_mass" value="${wheel_density * pi * wheel_radius * wheel_radius * wheel_width}" scope="parent"/>
         <xacro:property name="max_wheel_angular_velocity" value="${max_velocity / wheel_radius}" scope="parent"/>
     </xacro:macro>

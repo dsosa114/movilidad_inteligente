@@ -8,4 +8,5 @@
         robot_parameters_file="$(arg robot_parameters_file)"
     />
 
+    <xacro:include filename="$(find ackermann_vehicle_description)/urdf/mobile_base_gazebo.xacro" />
 </robot>
