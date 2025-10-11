@@ -1,8 +1,8 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch_ros.descriptions import ParameterValue
-from launch.substitutions import Command
-from launch.actions import IncludeLaunchDescription
+from launch.substitutions import Command, LaunchConfiguration
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 import os
 from ament_index_python.packages import get_package_share_path
@@ -17,12 +17,23 @@ def generate_launch_description():
     
     gz_world_path = os.path.join(get_package_share_path('differential_robot_bringup'),
                                  'worlds', 'my_world.sdf')
+    # gz_world_path = "empty.sdf"
     
     urdf_path = os.path.join(get_package_share_path("differential_robot_description"),
                              'urdf', 'differential_robot.urdf.xacro')
 
     rviz_config_path = os.path.join(get_package_share_path("differential_robot_description"),
                                     'rviz', 'rviz_config.rviz')
+    
+    # gz_args = f'{gz_world_path} -r'
+    # Declare launch arguments for Xacro parameters
+    gz_args = DeclareLaunchArgument(
+        'gz_args', 
+        default_value= f'{gz_world_path} -r',
+        description='Parameter file with all property values of the robot'
+    )
+
+    run_args = LaunchConfiguration('gz_args')
 
     robot_description = ParameterValue(Command(['xacro ', urdf_path]), value_type= str)
 
@@ -37,7 +48,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource([
             gz_launch_path,
             "/gz_sim.launch.py"
-        ]), launch_arguments={'gz_args': f'{gz_world_path} -r'}.items()
+        ]), launch_arguments={'gz_args': run_args}.items()
     )
 
     gz_entity_create_node = Node(
@@ -60,6 +71,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        gz_args,
         robot_state_publisher,
         gz_sim_launch,
         gz_entity_create_node,
