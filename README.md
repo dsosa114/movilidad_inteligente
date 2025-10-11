@@ -13,7 +13,7 @@ To use these packages, you must have **ROS 2 Humble** or **Jazzy** installed on 
 ### Dependencies
 
 ```bash
-sudo apt update 
+sudo apt update &&
 sudo apt install -y ros-${ROS_DISTRO}-ros2-control \
                     ros-${ROS_DISTRO}-ros2-controllers \
                     ros-${ROS_DISTRO}-gz-ros2-control \
@@ -22,7 +22,7 @@ sudo apt install -y ros-${ROS_DISTRO}-ros2-control \
                     ros-${ROS_DISTRO}-joint-state-publisher \
                     ros-${ROS_DISTRO}-robot-state-publisher \
                     ros-${ROS_DISTRO}-xacro \
-                    ros-${ROS_DISTRO}-joy \
+                    ros-${ROS_DISTRO}-joy
 ```
 
 
