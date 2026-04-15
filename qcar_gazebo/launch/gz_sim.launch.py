@@ -38,8 +38,8 @@ def start_vehicle_control():
 def nodes_to_execute(context, *args, **kwargs):
     gazebo_launch_path = os.path.join(get_package_share_directory('ros_gz_sim'), 'launch')
 
-    gazebo_world_path = os.path.join(get_package_share_path('qcar_gazebo'),
-                                     'worlds', 'test_world.sdf')
+    gazebo_worlds_folder_path = os.path.join(get_package_share_path('qcar_gazebo'),
+                                     'worlds')
     # gazebo_world_path = 'empty.sdf'
 
     # display_launch_path = os.path.join(get_package_share_directory('differential_robot_description'), 'launch')
@@ -59,6 +59,10 @@ def nodes_to_execute(context, *args, **kwargs):
     is_ign_param = LaunchConfiguration('is_ign')
 
     is_ign = str(is_ign_param.perform(context))
+
+    world = str(LaunchConfiguration('world').perform(context))
+
+    gazebo_world_path = os.path.join(gazebo_worlds_folder_path, world)
 
     robot_description = ParameterValue(Command(
         ["xacro",
@@ -158,6 +162,12 @@ def generate_launch_description():
         description='Parameter file with all property values of the robot'
     )
 
+    world_arg = DeclareLaunchArgument(
+        'world', 
+        default_value= 'test_world.sdf',
+        description='World file to be loaded in Gazebo. It should be located in the "worlds" directory of the qcar_gazebo package.'
+    )
+
     models_path = os.path.join(get_package_share_path('qcar_gazebo'), 'models')
 
     return LaunchDescription([
@@ -166,5 +176,6 @@ def generate_launch_description():
             name='GZ_SIM_RESOURCE_PATH',
             value=[models_path, ':', os.environ.get('GZ_SIM_RESOURCE_PATH', '')]
         ),
-        ign_arg
+        ign_arg,
+        world_arg
         ] + [OpaqueFunction(function=nodes_to_execute)])
