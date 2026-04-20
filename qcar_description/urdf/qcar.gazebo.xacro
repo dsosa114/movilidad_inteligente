@@ -87,6 +87,19 @@
               <mean>0.0</mean>
               <stddev>0.001</stddev>
           </noise>
+          <!-- <distortion>
+            <k1>0.0</k1>
+            <k2>0.0</k2>
+            <k3>0.0</k3>
+            <p1>0.0</p1>
+            <p2>0.0</p2>
+          </distortion> -->
+          <intrinsics>
+            <fx>56.42463383</fx>
+            <fy>138.56406461</fy>
+            <cx>320</cx>
+            <cy>240</cy>
+          </intrinsics>
           <distortion>
             <k1>-0.264598808</k1>
             <k2>0.0156281135</k2>

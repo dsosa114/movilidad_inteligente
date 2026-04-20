@@ -30,13 +30,40 @@ class LaneDetector(Node):
             Float32MultiArray, '/lane_lines', 10)
         
         self.br = CvBridge()
-        self.get_logger().info('Lane Detector Node has been started.')
+
+        hfov = 160 # Horizontal Field of View in degrees
+        vfov = 120 # Vertical Field of View in degrees
+        img_width = 640 # Image width in pixels
+        img_height = 480 # Image height in pixels
+        fx = (img_width / 2) / np.tan(np.radians(hfov / 2)) # Focal length in pixels
+        fy = (img_height / 2) / np.tan(np.radians(vfov / 2)) # Focal length in pixels
+        self.K = np.array([[fx, 0, img_width / 2],
+                           [0, fy, img_height / 2],
+                           [0, 0, 1]]) # Camera intrinsic matrix
+        self.x_m_per_pixel = 2 * np.tan(np.radians(hfov / 2)) / img_width # Meters per pixel in x direction
+        self.y_m_per_pixel = 2 * np.tan(np.radians(vfov / 2)) / img_height # Meters per pixel in y direction
+        # <k1>-0.264598808</k1>
+        # <k2>0.0156281135</k2>
+        # <k3>0.0822019378</k3>
+        # <p1>0.0000652954</p1>
+        # <p2>0.0053984313</p2>
+        self.distCoefs = np.array([-0.264598808, 0.0156281135, 0.0000652954, 0.0053984313, 0.0822019378]) # Distortion coefficients
+        self.newK, roi = cv2.getOptimalNewCameraMatrix(self.K, self.distCoefs, (img_width, img_height), 1, (img_width, img_height))
+        # White lane color range in HLS
+        self.gray_lower = np.array([30, 160, 0], dtype=np.uint8)
+        self.gray_upper = np.array([180, 200, 40], dtype=np.uint8)
+
+        # Yellow lane color range in HLS
+        self.yellow_lower = np.array([15, 30, 115], dtype=np.uint8)
+        self.yellow_upper = np.array([35, 204, 255], dtype=np.uint8)
+        self.get_logger().info(f'Lane Detector Node has been started. ROI: {self.K}')
 
     def lane_average(self, image, lines):
         left_fits = []
         right_fits = []
         
-        if lines is None: return None
+        if lines is None:
+            return [None, None, None]
 
         for line in lines:
             x1, y1, x2, y2 = line[0]
@@ -55,8 +82,19 @@ class LaneDetector(Node):
         # Average
         left_avg = np.average(left_fits, axis=0) if left_fits else None
         right_avg = np.average(right_fits, axis=0) if right_fits else None
-        
-        return [self.point_generator(image, left_avg), self.point_generator(image, right_avg)]
+        left_line = self.point_generator(image, left_avg)
+        right_line = self.point_generator(image, right_avg)
+
+        center_line = None
+        if left_line is not None and right_line is not None:
+            center_line = [
+                int((left_line[0] + right_line[0]) / 2),
+                left_line[1],
+                int((left_line[2] + right_line[2]) / 2),
+                left_line[3],
+            ]
+
+        return [left_line, right_line, center_line]
 
     def point_generator(self, image, fit):
         if fit is None: return None
@@ -66,49 +104,72 @@ class LaneDetector(Node):
         x1 = int((y1 - b) / m)
         x2 = int((y2 - b) / m)
         return [x1, y1, x2, y2]
+    
+    def color_segment(self, hls, lower_range, upper_range):
+        mask_in_range = cv2.inRange(hls, lower_range, upper_range)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        mask_dilated = cv2.morphologyEx(mask_in_range, cv2.MORPH_DILATE, kernel)
 
+        return mask_dilated
+    
     def listener_callback(self, data):
         # self.get_logger().info('Receiving video frame') # Uncomment for debugging
         current_frame = self.br.imgmsg_to_cv2(data, "bgr8")
-        
+        undistorted_frame = cv2.undistort(current_frame, self.K, self.distCoefs, None, self.newK)
+        cv2.imshow("Undistorted", undistorted_frame)
+        src = current_frame.copy()
         if current_frame is not None:
             try: 
+                # self.get_logger().info('Receiving video frame')
                 # --- Image Processing Logic ---
-                gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
-                blur = cv2.GaussianBlur(gray, (5, 5), 0)
-                edges = cv2.Canny(blur, 50, 150)
-                
+                # gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
+                hls = cv2.cvtColor(src, cv2.COLOR_BGR2HLS)
+                # blur = cv2.GaussianBlur(gray, (5, 5), 0)
+                # edges = cv2.Canny(blur, 50, 150)
+                white_mask = self.color_segment(hls, self.gray_lower, self.gray_upper)
+                yellow_mask = self.color_segment(hls, self.yellow_lower, self.yellow_upper)
+
+                # Find min and max values and their locations
+                # min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(edges)
+
+                # print(f"Minimum Value: {min_val} at {min_loc}")
+                # print(f"Maximum Value: {max_val} at {max_loc}")
                 # ROI
-                mask = np.zeros_like(edges)
-                height, width = edges.shape
+                mask = np.zeros_like(white_mask)
+                height, width = white_mask.shape
                 poligon = np.array([[
-                    (0, height), 
-                    (102, 115),
-                    (306, 115), 
-                    (width, height)
+                    (0, height-20), 
+                    (240, 280),
+                    (390, 280), 
+                    (width, height-20)
                 ]], np.int32)
                 cv2.fillPoly(mask, poligon, 255)
-                masked_edges = cv2.bitwise_and(edges, mask)
-
+                masked_colors = cv2.bitwise_or(white_mask, yellow_mask)
+                masked_edges = cv2.bitwise_and(masked_colors, mask)
                 # Hough
                 lines = cv2.HoughLinesP(masked_edges, 1, np.pi/180, threshold=50, 
                         minLineLength=100, maxLineGap=50)
                 
                 # Extrapolation
-                left_line, right_line = self.lane_average(current_frame, lines)
+                left_line, right_line, center_line = self.lane_average(current_frame, lines)
                 line_image = np.copy(current_frame)
                 # if lines is not None:
                 #     for line in lines:
                 #         x1, y1, x2, y2 = line[0]
                 #         cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 0), 10)
-                if left_line is not None:
-                    # Dibujar línea AZUL (BGR) para izquierda
-                    cv2.line(line_image, (left_line[0], left_line[1]), (left_line[2], left_line[3]), (255, 0, 0), 8)
+                # if left_line is not None:
+                #     # Dibujar línea AZUL (BGR) para izquierda
+                #     cv2.line(line_image, (left_line[0], left_line[1]), (left_line[2], left_line[3]), (255, 0, 0), 5)
                     
-                if right_line is not None:
-                    # Dibujar línea ROJA (BGR) para derecha
-                    cv2.line(line_image, (right_line[0], right_line[1]), (right_line[2], right_line[3]), (0, 0, 255), 8)
+                # if right_line is not None:
+                #     # Dibujar línea ROJA (BGR) para derecha
+                #     cv2.line(line_image, (right_line[0], right_line[1]), (right_line[2], right_line[3]), (0, 0, 255), 5)
 
+                if center_line is not None:
+                    # Dibujar línea VERDE (BGR) para centro
+                    cv2.line(line_image, (center_line[0], center_line[1]), (center_line[2], center_line[3]), (0, 255, 0), 5)
+
+                cv2.polylines(line_image, poligon, isClosed=True, color=(127, 0, 127), thickness=3)
                 msg_lines = Float32MultiArray()
                 # Convertimos a float y usamos -1.0 si es None
                 left_data = [float(x) for x in left_line] if left_line is not None else [-1.0]*4
@@ -119,7 +180,8 @@ class LaneDetector(Node):
                 # Display the processed frame
                 cv2.imshow("Detections", line_image)
                 cv2.waitKey(1)
-            except:
+            except Exception as e:
+                self.get_logger().error(f'Error processing video frame {e}')
                 return
 
 def main(args=None):
