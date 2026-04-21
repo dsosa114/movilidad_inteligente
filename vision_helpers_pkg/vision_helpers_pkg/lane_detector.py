@@ -13,9 +13,28 @@ class LaneDetector(Node):
         super().__init__('lane_detector')
         # 1. Declare the parameter with a default value
         self.declare_parameter('subscribe_topic', '/camera/csi_image')
+        self.declare_parameter('target_point_topic', '/lane_target_point_m')
+        self.declare_parameter('bev_pixels_per_meter', 1000.0)
+        self.declare_parameter('bev_dst_points_m', [
+            0.0, 0.0,
+            0.0, 0.103908,
+            0.309683, 0.103908,
+            0.309683, 0.0,
+        ])
+        self.declare_parameter('roi_polygon_points_px', [
+            0.0, 460.0,
+            240.0, 280.0,
+            390.0, 280.0,
+            640.0, 460.0,
+        ])
+        self.declare_parameter('camera_to_rear_axle_forward_m', 0.323)
+        self.declare_parameter('camera_to_rear_axle_lateral_m', 0.0)
+        self.declare_parameter('lane_half_width_px', 50.0)
+        self.declare_parameter('lane_half_width_ema_alpha', 0.2)
         
         # 2. Get the parameter value
         topic_name = self.get_parameter('subscribe_topic').get_parameter_value().string_value
+        target_point_topic = self.get_parameter('target_point_topic').get_parameter_value().string_value
 
         self.group = ReentrantCallbackGroup()
 
@@ -28,6 +47,8 @@ class LaneDetector(Node):
         
         self.lane_pub = self.create_publisher(
             Float32MultiArray, '/lane_lines', 10)
+        self.target_point_pub = self.create_publisher(
+            Float32MultiArray, target_point_topic, 10)
         
         self.br = CvBridge()
 
@@ -49,6 +70,28 @@ class LaneDetector(Node):
         # <p2>0.0053984313</p2>
         self.distCoefs = np.array([-0.264598808, 0.0156281135, 0.0000652954, 0.0053984313, 0.0822019378]) # Distortion coefficients
         self.newK, roi = cv2.getOptimalNewCameraMatrix(self.K, self.distCoefs, (img_width, img_height), 1, (img_width, img_height))
+        
+
+        self.bev_pixels_per_meter = float(self.get_parameter('bev_pixels_per_meter').value)
+
+        bev_dst_points_flat = self.get_parameter('bev_dst_points_m').value
+        self.bev_dst_points_m = np.array(bev_dst_points_flat, dtype=np.float32).reshape((4, 2))
+
+        roi_polygon_points_flat = self.get_parameter('roi_polygon_points_px').value
+        self.roi_polygon_points_px = np.array(roi_polygon_points_flat, dtype=np.float32).reshape((4, 2))
+
+        self.camera_to_rear_axle_forward_m = float(self.get_parameter('camera_to_rear_axle_forward_m').value)
+        self.camera_to_rear_axle_lateral_m = float(self.get_parameter('camera_to_rear_axle_lateral_m').value)
+        self.lane_half_width_px = float(self.get_parameter('lane_half_width_px').value)
+        self.lane_half_width_ema_alpha = float(self.get_parameter('lane_half_width_ema_alpha').value)
+        self.dynamic_lane_half_width_px = self.lane_half_width_px
+
+        bev_width_m = float(np.max(self.bev_dst_points_m[:, 0]) - np.min(self.bev_dst_points_m[:, 0]))
+        bev_height_m = float(np.max(self.bev_dst_points_m[:, 1]) - np.min(self.bev_dst_points_m[:, 1]))
+        self.bev_size = (
+            max(1, int(np.ceil(bev_width_m * self.bev_pixels_per_meter))),
+            max(1, int(np.ceil(bev_height_m * self.bev_pixels_per_meter))),
+        )
         # White lane color range in HLS
         self.gray_lower = np.array([30, 160, 0], dtype=np.uint8)
         self.gray_upper = np.array([180, 200, 40], dtype=np.uint8)
@@ -111,18 +154,76 @@ class LaneDetector(Node):
         mask_dilated = cv2.morphologyEx(mask_in_range, cv2.MORPH_DILATE, kernel)
 
         return mask_dilated
+
+    def get_homography_matrix(self, polygon):
+        src_points = polygon[0].astype(np.float32)
+        dst_points_px = self.bev_dst_points_m * self.bev_pixels_per_meter
+        return cv2.getPerspectiveTransform(src_points, dst_points_px)
+
+    def update_lane_half_width(self, left_line, right_line):
+        if left_line is None or right_line is None:
+            return
+
+        measured_half_width_px = 0.5 * abs(float(right_line[2] - left_line[2]))
+        if measured_half_width_px <= 1.0:
+            return
+
+        alpha = float(np.clip(self.lane_half_width_ema_alpha, 0.0, 1.0))
+        self.dynamic_lane_half_width_px = (
+            alpha * measured_half_width_px +
+            (1.0 - alpha) * self.dynamic_lane_half_width_px
+        )
+
+    def select_target_pixel(self, left_line, right_line, center_line):
+        if center_line is not None:
+            return [center_line[2], center_line[3]]
+
+        lane_half_width_px = self.dynamic_lane_half_width_px
+
+        if left_line is not None:
+            return [int(left_line[2] + lane_half_width_px), left_line[3]]
+
+        if right_line is not None:
+            return [int(right_line[2] - lane_half_width_px), right_line[3]]
+
+        return None
+
+    def target_to_rear_axle_m(self, target_pixel, homography_matrix):
+        target_pixel_np = np.array([[[float(target_pixel[0]), float(target_pixel[1])]]], dtype=np.float32)
+        target_bev_px = cv2.perspectiveTransform(target_pixel_np, homography_matrix)[0][0]
+        target_bev_m = target_bev_px / self.bev_pixels_per_meter
+
+        left_x = 0.5 * (self.bev_dst_points_m[0][0] + self.bev_dst_points_m[1][0])
+        right_x = 0.5 * (self.bev_dst_points_m[2][0] + self.bev_dst_points_m[3][0])
+        center_x = 0.5 * (left_x + right_x)
+
+        near_y = 0.5 * (self.bev_dst_points_m[0][1] + self.bev_dst_points_m[3][1])
+        far_y = 0.5 * (self.bev_dst_points_m[1][1] + self.bev_dst_points_m[2][1])
+        max_visible_forward = abs(far_y - near_y)
+
+        lateral_camera = float(target_bev_m[0] - center_x)
+        forward_camera = float(np.clip(abs(target_bev_m[1] - near_y), 0.0, max_visible_forward))
+
+        target_x_rear = lateral_camera + self.camera_to_rear_axle_lateral_m
+        target_y_rear = forward_camera + self.camera_to_rear_axle_forward_m
+        return target_x_rear, target_y_rear
+
+    def bird_eye_view(self, image, h_matrix):
+        bev = cv2.warpPerspective(image, h_matrix, self.bev_size)
+        return bev
     
     def listener_callback(self, data):
         # self.get_logger().info('Receiving video frame') # Uncomment for debugging
         current_frame = self.br.imgmsg_to_cv2(data, "bgr8")
-        undistorted_frame = cv2.undistort(current_frame, self.K, self.distCoefs, None, self.newK)
-        cv2.imshow("Undistorted", undistorted_frame)
+        # undistorted_frame = cv2.undistort(current_frame, self.K, self.distCoefs, None, self.newK)
+        # cv2.imshow("Undistorted", undistorted_frame)
         src = current_frame.copy()
         if current_frame is not None:
             try: 
                 # self.get_logger().info('Receiving video frame')
                 # --- Image Processing Logic ---
-                # gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
+                poligon = self.roi_polygon_points_px.astype(np.int32).reshape((1, 4, 2))
+                h_matrix = self.get_homography_matrix(poligon)
                 hls = cv2.cvtColor(src, cv2.COLOR_BGR2HLS)
                 # blur = cv2.GaussianBlur(gray, (5, 5), 0)
                 # edges = cv2.Canny(blur, 50, 150)
@@ -135,41 +236,66 @@ class LaneDetector(Node):
                 # print(f"Minimum Value: {min_val} at {min_loc}")
                 # print(f"Maximum Value: {max_val} at {max_loc}")
                 # ROI
-                mask = np.zeros_like(white_mask)
-                height, width = white_mask.shape
-                poligon = np.array([[
-                    (0, height-20), 
-                    (240, 280),
-                    (390, 280), 
-                    (width, height-20)
-                ]], np.int32)
-                cv2.fillPoly(mask, poligon, 255)
                 masked_colors = cv2.bitwise_or(white_mask, yellow_mask)
-                masked_edges = cv2.bitwise_and(masked_colors, mask)
+                roi_mask = np.zeros_like(masked_colors)
+                cv2.fillPoly(roi_mask, poligon, 255)
+                masked_edges = cv2.bitwise_and(masked_colors, roi_mask)
                 # Hough
                 lines = cv2.HoughLinesP(masked_edges, 1, np.pi/180, threshold=50, 
                         minLineLength=100, maxLineGap=50)
                 
                 # Extrapolation
-                left_line, right_line, center_line = self.lane_average(current_frame, lines)
-                line_image = np.copy(current_frame)
+                left_line, right_line, center_line = self.lane_average(src, lines)
+                line_image = np.copy(src)
                 # if lines is not None:
                 #     for line in lines:
                 #         x1, y1, x2, y2 = line[0]
                 #         cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 0), 10)
-                # if left_line is not None:
-                #     # Dibujar línea AZUL (BGR) para izquierda
-                #     cv2.line(line_image, (left_line[0], left_line[1]), (left_line[2], left_line[3]), (255, 0, 0), 5)
+                if left_line is not None:
+                    # Dibujar línea AZUL (BGR) para izquierda
+                    cv2.line(line_image, (left_line[0], left_line[1]), (left_line[2], left_line[3]), (255, 0, 0), 5)
                     
-                # if right_line is not None:
-                #     # Dibujar línea ROJA (BGR) para derecha
-                #     cv2.line(line_image, (right_line[0], right_line[1]), (right_line[2], right_line[3]), (0, 0, 255), 5)
+                if right_line is not None:
+                    # Dibujar línea ROJA (BGR) para derecha
+                    cv2.line(line_image, (right_line[0], right_line[1]), (right_line[2], right_line[3]), (0, 0, 255), 5)
 
                 if center_line is not None:
                     # Dibujar línea VERDE (BGR) para centro
                     cv2.line(line_image, (center_line[0], center_line[1]), (center_line[2], center_line[3]), (0, 255, 0), 5)
 
-                cv2.polylines(line_image, poligon, isClosed=True, color=(127, 0, 127), thickness=3)
+                self.update_lane_half_width(left_line, right_line)
+
+                target_pixel = self.select_target_pixel(left_line, right_line, center_line)
+                target_msg = Float32MultiArray()
+                if target_pixel is not None:
+                    target_x_rear, target_y_rear = self.target_to_rear_axle_m(target_pixel, h_matrix)
+                    target_msg.data = [float(target_x_rear), float(target_y_rear)]
+                    cv2.circle(line_image, (target_pixel[0], target_pixel[1]), 5, (0, 255, 255), -1)
+                    cv2.putText(
+                        line_image,
+                        f"target[m] x={target_x_rear:.3f}, y={target_y_rear:.3f}",
+                        (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 255),
+                        1,
+                    )
+                    cv2.putText(
+                        line_image,
+                        f"lane_half_width_px={self.dynamic_lane_half_width_px:.1f}",
+                        (10, 50),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 255),
+                        1,
+                    )
+                else:
+                    target_msg.data = [-1.0, -1.0]
+
+                self.target_point_pub.publish(target_msg)
+
+                cv2.polylines(line_image, poligon, isClosed=True, color=(255, 255, 0), thickness=2)
+                bev_line_image = self.bird_eye_view(line_image, h_matrix)
                 msg_lines = Float32MultiArray()
                 # Convertimos a float y usamos -1.0 si es None
                 left_data = [float(x) for x in left_line] if left_line is not None else [-1.0]*4
@@ -179,6 +305,7 @@ class LaneDetector(Node):
 
                 # Display the processed frame
                 cv2.imshow("Detections", line_image)
+                cv2.imshow("BEV Detections", bev_line_image)
                 cv2.waitKey(1)
             except Exception as e:
                 self.get_logger().error(f'Error processing video frame {e}')
