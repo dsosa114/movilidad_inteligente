@@ -31,6 +31,8 @@ class LaneDetector(Node):
         self.declare_parameter('camera_to_rear_axle_lateral_m', 0.0)
         self.declare_parameter('lane_half_width_px', 50.0)
         self.declare_parameter('lane_half_width_ema_alpha', 0.2)
+        # Lateral bias: 0.0 = lane center, positive = toward left line (max ~0.9)
+        self.declare_parameter('lane_lateral_bias', 0.0)
         
         # 2. Get the parameter value
         topic_name = self.get_parameter('subscribe_topic').get_parameter_value().string_value
@@ -85,6 +87,7 @@ class LaneDetector(Node):
         self.lane_half_width_px = float(self.get_parameter('lane_half_width_px').value)
         self.lane_half_width_ema_alpha = float(self.get_parameter('lane_half_width_ema_alpha').value)
         self.dynamic_lane_half_width_px = self.lane_half_width_px
+        self.lane_lateral_bias = float(np.clip(self.get_parameter('lane_lateral_bias').value, -0.9, 0.9))
 
         bev_width_m = float(np.max(self.bev_dst_points_m[:, 0]) - np.min(self.bev_dst_points_m[:, 0]))
         bev_height_m = float(np.max(self.bev_dst_points_m[:, 1]) - np.min(self.bev_dst_points_m[:, 1]))
@@ -175,16 +178,21 @@ class LaneDetector(Node):
         )
 
     def select_target_pixel(self, left_line, right_line, center_line):
-        if center_line is not None:
-            return [center_line[2], center_line[3]]
+        bias = self.lane_lateral_bias
+        half_w = self.dynamic_lane_half_width_px
 
-        lane_half_width_px = self.dynamic_lane_half_width_px
+        if center_line is not None:
+            # center_line top point: shift left by bias fraction of half-width
+            return [int(center_line[2] - bias * half_w), center_line[3]]
 
         if left_line is not None:
-            return [int(left_line[2] + lane_half_width_px), left_line[3]]
+            # target = left_line + half_w * (1 - bias)
+            # bias=0 -> center, bias=0.5 -> halfway to left line
+            return [int(left_line[2] + half_w * (1.0 - bias)), left_line[3]]
 
         if right_line is not None:
-            return [int(right_line[2] - lane_half_width_px), right_line[3]]
+            # target = right_line - half_w * (1 + bias)
+            return [int(right_line[2] - half_w * (1.0 + bias)), right_line[3]]
 
         return None
 

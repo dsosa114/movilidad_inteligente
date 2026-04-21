@@ -41,3 +41,13 @@ lane_detector:
 
     # Used when only one lane is visible to estimate centerline in image space.
     lane_half_width_px: 50.0
+
+    # EMA smoothing factor for dynamic lane half-width estimation (0.1–0.3 recommended).
+    lane_half_width_ema_alpha: 0.2
+
+    # Lateral target bias within the lane.
+    # 0.0 = lane center (default)
+    # 0.5 = halfway between center and left line (recommended for left-biased driving)
+    # 0.9 = very close to the left line (max safe value)
+    # Negative values bias toward the right line.
+    lane_lateral_bias: 0.15
