@@ -56,7 +56,7 @@
         <!-- Parameters for the base -->
         <xacro:property name="base_length" value="${base_parameters['base_length']}" scope="parent"/>
         <xacro:property name="base_width" value="${base_parameters['base_width']}" scope="parent"/>
-        <xacro:property name="base_height" value="${base_parameters['base_height']}" scope="parent"/>
+        <xacro:property name="base_height" value="${base_parameters['base_height']}" scope="global"/>
         <xacro:property name="base_density" value="${base_parameters['base_density']}" scope="parent"/>
         <!-- Parameters for the wheels -->
         <xacro:property name="wheel_radius" value="${wheel_parameters['wheel_radius']}" scope="global"/>

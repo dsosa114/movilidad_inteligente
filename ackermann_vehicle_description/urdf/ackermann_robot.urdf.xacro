@@ -9,4 +9,5 @@
     />
 
     <xacro:include filename="$(find ackermann_vehicle_description)/urdf/mobile_base_gazebo.xacro" />
+    <xacro:include filename="$(find ackermann_vehicle_description)/urdf/lidar.xacro"/>
 </robot>
