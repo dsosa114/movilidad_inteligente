@@ -295,10 +295,60 @@
         <update_rate>${imu_update_rate}</update_rate>
         <visualize>true</visualize>
         <topic>imu</topic>
+        <gz_frame_id>imu</gz_frame_id>
         <imu>
-          <orientation_reference_frame>
-            <localization>GRAV_UP</localization>
-          </orientation_reference_frame>
+          <angular_velocity>
+            <x>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>2e-4</stddev>
+                <bias_mean>0.0000075</bias_mean>
+                <bias_stddev>0.0000008</bias_stddev>
+              </noise>
+            </x>
+            <y>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>2e-4</stddev>
+                <bias_mean>0.0000075</bias_mean>
+                <bias_stddev>0.0000008</bias_stddev>
+              </noise>
+            </y>
+            <z>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>2e-4</stddev>
+                <bias_mean>0.0000075</bias_mean>
+                <bias_stddev>0.0000008</bias_stddev>
+              </noise>
+            </z>
+          </angular_velocity>
+          <linear_acceleration>
+            <x>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>1.7e-2</stddev>
+                <bias_mean>0.1</bias_mean>
+                <bias_stddev>0.001</bias_stddev>
+              </noise>
+            </x>
+            <y>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>1.7e-2</stddev>
+                <bias_mean>0.1</bias_mean>
+                <bias_stddev>0.001</bias_stddev>
+              </noise>
+            </y>
+            <z>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>1.7e-2</stddev>
+                <bias_mean>0.1</bias_mean>
+                <bias_stddev>0.001</bias_stddev>
+              </noise>
+            </z>
+          </linear_acceleration>
         </imu>
       <!-- Sensor |camera,ray,imu,magnetometer,gps,force_torque,contact,sonar,rfidtag,rfid| -->
       </sensor>
@@ -326,8 +376,11 @@
         </plugin>
 
         <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
-          <odom_frame>vehicle/odom</odom_frame>
-          <robot_base_frame>base_link</robot_base_frame>
+          <odom_frame>odom</odom_frame>
+          <robot_base_frame>base_footprint</robot_base_frame>
+        </plugin>
+
+        <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu">
         </plugin>
       </xacro:unless>
 
@@ -350,9 +403,11 @@
             <render_engine>ogre2</render_engine>
         </plugin>
 
-        <plugin filename="ignition-gazebo-odometry-publisher-system" name="ignition::gazebo::systems::OdometryPublisher">
-          <odom_frame>vehicle/odom</odom_frame>
-          <robot_base_frame>base_link</robot_base_frame>
+        <plugin filename="libignition-gazebo-odometry-publisher-system" name="ignition::gazebo::systems::OdometryPublisher">
+          <odom_frame>odom</odom_frame>
+          <robot_base_frame>base_footprint</robot_base_frame>
+        </plugin>
+        <plugin filename="libignition-gazebo-imu-system" name="ignition::gazebo::systems::Imu">
         </plugin>
       </xacro:if>
     </gazebo>

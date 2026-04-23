@@ -53,6 +53,8 @@ def nodes_to_execute(context, *args, **kwargs):
     gazebo_config_path = os.path.join(get_package_share_path('qcar_gazebo'),
                                      'config', 'gz_bridge.yaml')
     
+    ekf_param_path = os.path.join(get_package_share_path('qcar_gazebo'),
+                                 'config', 'ekf.yaml')
     vehicle_params_path = os.path.join(get_package_share_path('qcar_gazebo'),
                                        'config', 'ego_params.yaml')
 
@@ -126,6 +128,14 @@ def nodes_to_execute(context, *args, **kwargs):
         # ]
     )
 
+    robot_localization_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[ekf_param_path, {'use_sim_time': LaunchConfiguration('use_sim_time')}]
+    )
+
     # Start controllers
     joint_state, forward_velocity, forward_position = start_vehicle_control()
 
@@ -148,6 +158,7 @@ def nodes_to_execute(context, *args, **kwargs):
         display_robot_gazebo,
         spawn_entity_node,
         robot_state_publisher_node,
+        robot_localization_node,
         rviz2_node,
         vehicle_controller_node,
         bridge_node
@@ -168,6 +179,12 @@ def generate_launch_description():
         description='World file to be loaded in Gazebo. It should be located in the "worlds" directory of the qcar_gazebo package.'
     )
 
+    use_sim_time_arg = DeclareLaunchArgument(
+        'use_sim_time', 
+        default_value='True',
+        description='Flag to enable use_sim_time'
+    )
+
     models_path = os.path.join(get_package_share_path('qcar_gazebo'), 'models')
 
     return LaunchDescription([
@@ -177,5 +194,6 @@ def generate_launch_description():
             value=[models_path, ':', os.environ.get('GZ_SIM_RESOURCE_PATH', '')]
         ),
         ign_arg,
-        world_arg
+        world_arg,
+        use_sim_time_arg
         ] + [OpaqueFunction(function=nodes_to_execute)])
