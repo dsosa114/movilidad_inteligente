@@ -16,6 +16,12 @@
   gz_type_name: "gz.msgs.Odometry"
   direction: "GZ_TO_ROS"
 
+- ros_topic_name: "/qcar_sim/imu"
+  gz_topic_name: "/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
 - ros_topic_name: "/qcar_sim/scan"
   gz_topic_name: "/scan"
   ros_type_name: "sensor_msgs/msg/LaserScan"

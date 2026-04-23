@@ -144,19 +144,19 @@ limitations under the License.
       </inertial>
     </xacro:macro>
 
-    <!-- base_link must have geometry so that its axes can be displayed in
+    <!-- base_footprint must have geometry so that its axes can be displayed in
          rviz. -->
     
     <!-- <joint name="$base_joint" type="fixed">
       <xacro:insert_block name="origin" />
       <parent link="${parent}"/>
-      <child link="${prefix}base_link" />
+      <child link="${prefix}base_footprint" />
     </joint> -->
 
-   <link name="base_link" />
+   <link name="base_footprint" />
 
     <!-- Chassis -->
-    <link name="base">
+    <link name="base_link">
       <visual>
         <!-- <origin xyz="0 0 ${-chassis_height / 2}"/> -->
         <origin rpy="0 0 0" xyz="0 0 0"/>
@@ -195,13 +195,13 @@ limitations under the License.
     </link>
 
   <!-- ________below is all about lidar positions and camera positions______________ -->
-    <joint name="base_link_to_chasis" type="fixed">
-      <parent link="base_link"/>
-      <child link="base"/>
+    <joint name="base_footprint_to_chasis" type="fixed">
+      <parent link="base_footprint"/>
+      <child link="base_link"/>
     </joint>
 
     <joint name="body_lidar_joint" type="fixed">
-    <parent link="base"/>
+    <parent link="base_link"/>
     <child link="lidar"/>
     <origin rpy="0 0 0" xyz="-0.01227 -0.00045 0.16152"/>
     <axis xyz="0 0 1"/>
@@ -233,7 +233,7 @@ limitations under the License.
       <!-- <origin xyz=".2 0 0" rpy="0 0 0"/> -->
         <origin rpy="0 0 0" xyz="0.081686 0.031547 0.15445"/>
         <!-- <origin rpy="0 0 0" xyz="0 0 0"/> -->
-      <parent link="base"/>
+      <parent link="base_link"/>
       <child link="camera_rgb"/>
     </joint>
     <link name="camera_rgb"/>
@@ -243,7 +243,7 @@ limitations under the License.
         <!-- <origin xyz=".2 0 0" rpy="0 0 0"/> -->
         <origin rpy="0 0 0" xyz="0.19236 -0.000475 0.093029"/>
         <!-- <origin rpy="0 0 0" xyz="0 0 0"/> -->
-        <parent link="base"/>
+        <parent link="base_link"/>
         <child link="camera_csi_front"/>
     </joint>
     <link name="camera_csi_front"/>
@@ -255,7 +255,7 @@ limitations under the License.
         <!-- <origin rpy="0 0 -1.5708" xyz="0.12887 -0.06755 0.093029"/> -->
         <origin rpy="0 0 -1.5708" xyz="0.012887 -0.06755 0.093029"/>
         <!-- <origin rpy="0 0 0" xyz="0 0 0"/> -->
-        <parent link="base"/>
+        <parent link="base_link"/>
         <child link="camera_csi_right"/>
     </joint>
     <link name="camera_csi_right"/>
@@ -265,7 +265,7 @@ limitations under the License.
         <!-- <origin xyz=".2 0 0" rpy="0 0 0"/> -->
         <origin rpy="0 0 -3.1416" xyz="-0.16669 -0.000578 0.093029"/>
         <!-- <origin rpy="0 0 0" xyz="0 0 0"/> -->
-        <parent link="base"/>
+        <parent link="base_link"/>
         <child link="camera_csi_back"/>
     </joint>
     <link name="camera_csi_back"/>
@@ -277,7 +277,7 @@ limitations under the License.
         <!-- <origin rpy="0 0 1.5708" xyz="0.12784 0.052497 0.093029"/> -->
          <origin rpy="0 0 1.5708" xyz="0.012784 0.052497 0.093029"/>
         <!-- <origin rpy="0 0 0" xyz="0 0 0"/> -->
-        <parent link="base"/>
+        <parent link="base_link"/>
         <child link="camera_csi_left"/>
     </joint>
     <link name="camera_csi_left"/>
@@ -289,7 +289,7 @@ limitations under the License.
         <!-- <origin rpy="0 0 1.5708" xyz="0.12784 0.052497 0.093029"/> -->
          <origin rpy="0 0 0" xyz="0.1278 0.0223 0.087229"/>
         <!-- <origin rpy="0 0 0" xyz="0 0 0"/> -->
-        <parent link="base"/>
+        <parent link="base_link"/>
         <child link="imu"/>
     </joint>
     <link name="imu"/>
@@ -304,11 +304,11 @@ limitations under the License.
         </actuator>
     </transmission> -->
     
-    <!-- ___base_link - > left_front_position_joint (fixed) -> left_steering_link -> left_steering_joint(revolote) -> left_front_axle_carrier -> left_front_axle(joint) (continuous) -> left_front_wheel_______________ -->
+    <!-- ___base_footprint - > left_front_position_joint (fixed) -> left_steering_link -> left_steering_joint(revolote) -> left_front_axle_carrier -> left_front_axle(joint) (continuous) -> left_front_wheel_______________ -->
     <!-- The "wheel" macro defines an axle carrier, axle, and wheel. -->
     
     <joint name="left_front_position_joint" type="fixed">
-      <parent link="base"/>
+      <parent link="base_link"/>
       <child link="left_steering_link"/>
       <origin rpy="0 0 0" xyz="0.12960 0.05590 0.03338"/>
       <axis xyz="0 0 1" />
@@ -393,7 +393,7 @@ limitations under the License.
       </actuator>
     </transmission>
 
-  <!-- ___base_link - > right_front_position_joint (fixed) -> right_steering_link -> right_steering_joint(revolote) -> right_front_axle_carrier -> right_front_axle(joint) (continuous) -> right_front_wheel_______________ -->
+  <!-- ___base_footprint - > right_front_position_joint (fixed) -> right_steering_link -> right_steering_joint(revolote) -> right_front_axle_carrier -> right_front_axle(joint) (continuous) -> right_front_wheel_______________ -->
 
     <link name="right_front_axle_carrier">
       <xacro:null_inertial/>
@@ -438,7 +438,7 @@ limitations under the License.
     </link>
 
     <joint name="right_front_position_joint" type="fixed">
-      <parent link="base"/>
+      <parent link="base_link"/>
       <child link="right_steering_link"/>
       <origin rpy="0 0 0" xyz="0.12960 -0.05590 0.03338"/>
     </joint>
@@ -481,7 +481,7 @@ limitations under the License.
 
     <!-- The upper portion is for the front -->
     <!-- Now is for the rear which only has axles -->
-  <!-- ____base_link -> left_rear_position_joint(fixed) -> left_rear_axle_carrier -> left_rear_axle (joint)(continuous) -> left_rear_wheel_____ -->
+  <!-- ____base_footprint -> left_rear_position_joint(fixed) -> left_rear_axle_carrier -> left_rear_axle (joint)(continuous) -> left_rear_wheel_____ -->
     <link name="left_rear_axle_carrier">
       <xacro:null_inertial/>
     </link>
@@ -524,12 +524,12 @@ limitations under the License.
     </link>
 
     <joint name="left_rear_position_joint" type="fixed">
-      <parent link="base"/>
+      <parent link="base_link"/>
       <child link="left_rear_axle_carrier"/>
       <origin rpy="0 0 0" xyz="-0.12765 0.05610 0.03338"/>
     </joint>
 
-  <!-- ____base_link -> right_rear_position_joint(fixed) -> right_rear_axle_carrier -> right_rear_axle (joint)(continuous) -> right_rear_wheel_____ -->
+  <!-- ____base_footprint -> right_rear_position_joint(fixed) -> right_rear_axle_carrier -> right_rear_axle (joint)(continuous) -> right_rear_wheel_____ -->
 
     <link name="right_rear_axle_carrier">
       <xacro:null_inertial/>
@@ -572,14 +572,14 @@ limitations under the License.
     </link>
 
     <joint name="right_rear_position_joint" type="fixed">
-      <parent link="base"/>
+      <parent link="base_link"/>
       <child link="right_rear_axle_carrier"/>
       <origin rpy="0 0 0" xyz="-0.12765 -0.05610 0.03338"/>
     </joint>
 
     <!-- The above is for the wheels and turning etc -->
     <!-- Gazebo Parameters -->
-    <gazebo reference="base">
+    <gazebo reference="base_link">
       <mu1>0.0001</mu1>
       <mu2>0.0001</mu2>
     </gazebo>
@@ -674,7 +674,7 @@ limitations under the License.
       <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so" />
       <plugin name="gazebo_ros_p3d"     filename="libgazebo_ros_p3d.so">
         <frameName>map</frameName>
-        <bodyName>base_link</bodyName>
+        <bodyName>base_footprint</bodyName>
         <topicName>odom_truth</topicName>
         <updateRate>30.0</updateRate>
       </plugin>
