@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="rescuebot">
+
+  <link name="base_footprint" />
+  <link name="base_link">
+    <inertial>
+      <origin xyz="-1.34309789170603E-06 3.85931114445931E-06 1.4480979793844E-07"
+        rpy="0 0 0" />
+      <mass value="1.16670034728321" />
+      <inertia
+        ixx="0.00796107871297583"
+        ixy="3.46721401854152E-10"
+        ixz="-3.91797971551843E-11"
+        iyy="0.00355020528618577"
+        iyz="-2.29542560105723E-05"
+        izz="0.0112996644239575" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="file://$(find rescuebot_description)/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="file://$(find rescuebot_description)/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="base_joint" type="fixed">
+        <parent link="base_footprint" />
+        <child link="base_link" />
+        <!-- Revisar el radio de la llanta para colocar correctamente el marco de referencia -->
+        <origin xyz="0 0 0.0625" rpy="0 0 0"/> 
+    </joint>
+  <link name="rueda_derecha_delantera_link">
+    <inertial>
+      <origin
+        xyz="-0.0925444419948926 0.0240370965809233 0.0181270123818951"
+        rpy="0 0 0" />
+      <mass
+        value="0.333891295993212" />
+      <inertia
+        ixx="0.000134589123681434"
+        ixy="-3.32860575684251E-10"
+        ixz="3.72780721076245E-12"
+        iyy="0.000134589061693791"
+        iyz="-2.93823940498213E-12"
+        izz="0.000226412823166977" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="file://$(find rescuebot_description)/meshes/rueda_derecha_delantera_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="file://$(find rescuebot_description)/meshes/rueda_derecha_delantera_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="rueda_derecha_delantera_joint"
+    type="continuous">
+    <origin
+      xyz="-0.091071 -0.11159 -0.028041"
+      rpy="1.5708 -0.25412 -1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="rueda_derecha_delantera_link" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      effort="0"
+      velocity="18.85" />
+  </joint>
+  <link
+    name="rueda_izquierda_delantera_link">
+    <inertial>
+      <origin
+        xyz="-1.85813537334489E-08 -1.31875741576915E-09 0.0181270123819031"
+        rpy="0 0 0" />
+      <mass
+        value="0.166945648009238" />
+      <inertia
+        ixx="6.72964134152971E-05"
+        ixy="5.96103916926285E-12"
+        ixz="3.21920624648299E-12"
+        iyy="6.72926792766829E-05"
+        iyz="1.9284311831958E-13"
+        izz="0.00011320641158784" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="file://$(find rescuebot_description)/meshes/rueda_izquierda_delantera_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="file://$(find rescuebot_description)/meshes/rueda_izquierda_delantera_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="ruda_izquierda_delantera_joint"
+    type="continuous">
+    <origin
+      xyz="0.091068 -0.11159 -0.028041"
+      rpy="1.5708 0.064307 1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="rueda_izquierda_delantera_link" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      effort="0"
+      velocity="18.85" />
+  </joint>
+  <link
+    name="rueda_derecha_trasera_link">
+    <inertial>
+      <origin
+        xyz="-1.8586103645718E-08 -1.31927325314196E-09 0.0181270123819039"
+        rpy="0 0 0" />
+      <mass
+        value="0.166945648008943" />
+      <inertia
+        ixx="6.72964134165935E-05"
+        ixy="5.95216788996846E-12"
+        ixz="3.19966222440432E-12"
+        iyy="6.72926792753007E-05"
+        iyz="2.2405142410547E-13"
+        izz="0.000113206411587751" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="file://$(find rescuebot_description)/meshes/rueda_derecha_trasera_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="file://$(find rescuebot_description)/meshes/rueda_derecha_trasera_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="rueda_derecha_trasera_joint"
+    type="continuous">
+    <origin
+      xyz="-0.091071 0.07964 -0.028041"
+      rpy="1.5708 1.227 -1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="rueda_derecha_trasera_link" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      effort="0"
+      velocity="18.85" />
+  </joint>
+  <link
+    name="rueda_izquierda_trasera_link">
+    <inertial>
+      <origin
+        xyz="-1.85861078194627E-08 -1.31927167801305E-09 0.0181270123819027"
+        rpy="0 0 0" />
+      <mass
+        value="0.166945648008926" />
+      <inertia
+        ixx="6.72964134165848E-05"
+        ixy="5.95216062411984E-12"
+        ixz="3.19966215405501E-12"
+        iyy="6.72926792752994E-05"
+        iyz="2.24050888987249E-13"
+        izz="0.00011320641158774" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="file://$(find rescuebot_description)/meshes/rueda_izquierda_trasera_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="file://$(find rescuebot_description)/meshes/rueda_izquierda_trasera_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="rueda_izquierda_trasera_joint"
+    type="continuous">
+    <origin
+      xyz="0.091068 0.07964 -0.028041"
+      rpy="-1.5708 -0.39604 -1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="rueda_izquierda_trasera_link" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      effort="0"
+      velocity="18.85" />
+  </joint>
+  <link
+    name="lidar_link">
+    <inertial>
+      <origin
+        xyz="-0.00810254403561399 -0.0104492152129823 0.000556520497701399"
+        rpy="0 0 0" />
+      <mass
+        value="0.141654473640087" />
+      <inertia
+        ixx="5.69097097753613E-05"
+        ixy="-1.24753616532652E-05"
+        ixz="-2.87900344418255E-07"
+        iyy="0.000108702097721124"
+        iyz="7.21857208025893E-07"
+        izz="8.93215448552511E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="file://$(find rescuebot_description)/meshes/lidar_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.211764705882353 0.211764705882353 0.203921568627451 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="file://$(find rescuebot_description)/meshes/lidar_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="lidar_joint"
+    type="fixed">
+    <origin
+      xyz="2.975E-05 0.016524 0.085459"
+      rpy="-1.5708 0 -1.5708" />
+    <parent
+      link="base_link" />
+    <child
+      link="lidar_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+</robot>
