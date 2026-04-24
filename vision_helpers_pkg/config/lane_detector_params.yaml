@@ -13,22 +13,22 @@ lane_detector:
     # [x0, y0, x1, y1, x2, y2, x3, y3]
     bev_dst_points_m:
       - 0.0
+      - 0.0
+      - 0.0
       - 0.103908
-      - 0.0
-      - 0.0
-      - 0.309683
-      - 0.0
-      - 0.309683
+      - 0.434
       - 0.103908
+      - 0.434 
+      - 0.0     
 
     # Source ROI polygon in input image pixels (x, y), flattened as:
     # [x0, y0, x1, y1, x2, y2, x3, y3]
     roi_polygon_points_px:
       - 0.0
       - 480.0
-      - 240.0
+      - 210.0
       - 280.0
-      - 390.0
+      - 420.0
       - 280.0
       - 640.0
       - 480.0
@@ -50,4 +50,4 @@ lane_detector:
     # 0.5 = halfway between center and left line (recommended for left-biased driving)
     # 0.9 = very close to the left line (max safe value)
     # Negative values bias toward the right line.
-    lane_lateral_bias: 0.15
+    lane_lateral_bias: 0.25

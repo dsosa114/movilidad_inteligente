@@ -33,7 +33,7 @@ class LaneDetector(Node):
         self.declare_parameter('lane_half_width_ema_alpha', 0.2)
         # Lateral bias: 0.0 = lane center, positive = toward left line (max ~0.9)
         self.declare_parameter('lane_lateral_bias', 0.0)
-        
+
         # 2. Get the parameter value
         topic_name = self.get_parameter('subscribe_topic').get_parameter_value().string_value
         target_point_topic = self.get_parameter('target_point_topic').get_parameter_value().string_value
@@ -46,12 +46,12 @@ class LaneDetector(Node):
             self.listener_callback,
             10,
             callback_group=self.group)
-        
+
         self.lane_pub = self.create_publisher(
             Float32MultiArray, '/lane_lines', 10)
         self.target_point_pub = self.create_publisher(
             Float32MultiArray, target_point_topic, 10)
-        
+
         self.br = CvBridge()
 
         hfov = 160 # Horizontal Field of View in degrees
@@ -72,7 +72,7 @@ class LaneDetector(Node):
         # <p2>0.0053984313</p2>
         self.distCoefs = np.array([-0.264598808, 0.0156281135, 0.0000652954, 0.0053984313, 0.0822019378]) # Distortion coefficients
         self.newK, roi = cv2.getOptimalNewCameraMatrix(self.K, self.distCoefs, (img_width, img_height), 1, (img_width, img_height))
-        
+
 
         self.bev_pixels_per_meter = float(self.get_parameter('bev_pixels_per_meter').value)
 
@@ -88,6 +88,10 @@ class LaneDetector(Node):
         self.lane_half_width_ema_alpha = float(self.get_parameter('lane_half_width_ema_alpha').value)
         self.dynamic_lane_half_width_px = self.lane_half_width_px
         self.lane_lateral_bias = float(np.clip(self.get_parameter('lane_lateral_bias').value, -0.9, 0.9))
+        self.last_detected_lane = 1 #  1 = left, 0 = center, -1 = right
+        self.last_target_pixel = None
+        self.max_waiting_cycles = 500
+        self.waiting_cycles = 0
 
         bev_width_m = float(np.max(self.bev_dst_points_m[:, 0]) - np.min(self.bev_dst_points_m[:, 0]))
         bev_height_m = float(np.max(self.bev_dst_points_m[:, 1]) - np.min(self.bev_dst_points_m[:, 1]))
@@ -107,24 +111,24 @@ class LaneDetector(Node):
     def lane_average(self, image, lines):
         left_fits = []
         right_fits = []
-        
+
         if lines is None:
             return [None, None, None]
 
         for line in lines:
             x1, y1, x2, y2 = line[0]
             if x1 == x2: continue # Evitar división por cero
-            
+
             parameters = np.polyfit((x1, x2), (y1, y2), 1)
             slope, intersect = parameters[0], parameters[1]
-            
+
             # negative slope = left lane (en coordenadas de imagen)
             # positive slope = right lane
             if slope < 0:
                 left_fits.append((slope, intersect))
             else:
                 right_fits.append((slope, intersect))
-                
+
         # Average
         left_avg = np.average(left_fits, axis=0) if left_fits else None
         right_avg = np.average(right_fits, axis=0) if right_fits else None
@@ -150,7 +154,7 @@ class LaneDetector(Node):
         x1 = int((y1 - b) / m)
         x2 = int((y2 - b) / m)
         return [x1, y1, x2, y2]
-    
+
     def color_segment(self, hls, lower_range, upper_range):
         mask_in_range = cv2.inRange(hls, lower_range, upper_range)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
@@ -180,21 +184,39 @@ class LaneDetector(Node):
     def select_target_pixel(self, left_line, right_line, center_line):
         bias = self.lane_lateral_bias
         half_w = self.dynamic_lane_half_width_px
+        bias *= self.last_detected_lane
+
+        if self.waiting_cycles > self.max_waiting_cycles:
+            return None
 
         if center_line is not None:
             # center_line top point: shift left by bias fraction of half-width
-            return [int(center_line[2] - bias * half_w), center_line[3]]
+            self.last_detected_lane = 1
+            self.last_target_pixel = [int(center_line[2] - bias * half_w), center_line[3]]
+            self.waiting_cycles = 0
+            # return self.last_target_pixel
 
-        if left_line is not None:
+        elif left_line is not None:
             # target = left_line + half_w * (1 - bias)
             # bias=0 -> center, bias=0.5 -> halfway to left line
-            return [int(left_line[2] + half_w * (1.0 - bias)), left_line[3]]
+            self.last_detected_lane = 0.5
+            self.last_target_pixel = [int(left_line[2] + half_w * (1.0 - bias)), left_line[3]]
+            self.waiting_cycles = 0
+            # return [int(left_line[2] + half_w * (1.0 - bias)), left_line[3]]
 
-        if right_line is not None:
+        elif right_line is not None:
             # target = right_line - half_w * (1 + bias)
-            return [int(right_line[2] - half_w * (1.0 + bias)), right_line[3]]
+            self.last_detected_lane = -0.75
+            self.last_target_pixel = [int(right_line[2] - half_w * (1.0 + bias)), right_line[3]]
+            self.waiting_cycles = 0
+            # return [int(right_line[2] - half_w * (1.0 + bias)), right_line[3]]
 
-        return None
+        else:
+            self.waiting_cycles += 1
+            # return None
+        
+        # self.waiting_cycles = 0
+        return self.last_target_pixel
 
     def target_to_rear_axle_m(self, target_pixel, homography_matrix):
         target_pixel_np = np.array([[[float(target_pixel[0]), float(target_pixel[1])]]], dtype=np.float32)
@@ -219,7 +241,7 @@ class LaneDetector(Node):
     def bird_eye_view(self, image, h_matrix):
         bev = cv2.warpPerspective(image, h_matrix, self.bev_size)
         return bev
-    
+
     def listener_callback(self, data):
         # self.get_logger().info('Receiving video frame') # Uncomment for debugging
         current_frame = self.br.imgmsg_to_cv2(data, "bgr8")
@@ -227,7 +249,7 @@ class LaneDetector(Node):
         # cv2.imshow("Undistorted", undistorted_frame)
         src = current_frame.copy()
         if current_frame is not None:
-            try: 
+            try:
                 # self.get_logger().info('Receiving video frame')
                 # --- Image Processing Logic ---
                 poligon = self.roi_polygon_points_px.astype(np.int32).reshape((1, 4, 2))
@@ -249,9 +271,9 @@ class LaneDetector(Node):
                 cv2.fillPoly(roi_mask, poligon, 255)
                 masked_edges = cv2.bitwise_and(masked_colors, roi_mask)
                 # Hough
-                lines = cv2.HoughLinesP(masked_edges, 1, np.pi/180, threshold=50, 
-                        minLineLength=100, maxLineGap=50)
-                
+                lines = cv2.HoughLinesP(masked_edges, 1, np.pi/180, threshold=50,
+                        minLineLength=50, maxLineGap=25)
+
                 # Extrapolation
                 left_line, right_line, center_line = self.lane_average(src, lines)
                 line_image = np.copy(src)
@@ -262,7 +284,7 @@ class LaneDetector(Node):
                 if left_line is not None:
                     # Dibujar línea AZUL (BGR) para izquierda
                     cv2.line(line_image, (left_line[0], left_line[1]), (left_line[2], left_line[3]), (255, 0, 0), 5)
-                    
+
                 if right_line is not None:
                     # Dibujar línea ROJA (BGR) para derecha
                     cv2.line(line_image, (right_line[0], right_line[1]), (right_line[2], right_line[3]), (0, 0, 255), 5)
