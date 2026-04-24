@@ -45,6 +45,8 @@ private:
 
   double steering_angle_;
   double velocity_;
+
+  std::string publish_topic_;
 };
 
 #endif  // JOY_CONTROLLER_HPP

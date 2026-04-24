@@ -17,5 +17,8 @@
     max_steering_angle: 0.523 # Maximum steering angle of the vehicle [rad]
     max_steering_angular_velocity: 1.570796 # Maximum steering angular velocity [rad/s]
     max_steering_effort: 1.0 # Maximum steering torque [Nm]
-    max_velocity: 4.458883 # Maximum wheel velocity [m/s]
+    max_velocity: 0.4458883 # Maximum wheel velocity [m/s]
     max_effort: 0.5649 #5.12766 # Maximum wheel torque [Nm]
+
+    #Publish topic
+    publish_topic: /qcar_sim/user_command

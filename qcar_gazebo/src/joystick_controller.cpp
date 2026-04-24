@@ -5,22 +5,25 @@ JoystickController::JoystickController(const double timer_period) :
   max_steering_angle_{0.0},
   max_velocity_{0.0},
   steering_angle_{0.0},
-  velocity_{0.0}
+  velocity_{0.0},
+  publish_topic_{"/qcar_sim/user_command"}
 {
   // Declare the used parameters
   declare_parameter<double>("max_steering_angle", 0.0);
   declare_parameter<double>("max_velocity", 0.0);
+  declare_parameter<std::string>("publish_topic", "/qcar_sim/user_command");
 
   // Get parameters on startup
   get_parameter("max_steering_angle", max_steering_angle_);
   get_parameter("max_velocity", max_velocity_);
+  get_parameter("publish_topic", publish_topic_);
 
   // Subscription to the 'joy' topic
   subscriber_ = create_subscription<sensor_msgs::msg::Joy>(
     "joy", 1, std::bind(&JoystickController::listener_callback, this, std::placeholders::_1));
 
   // Publishers
-  user_command_publisher_ = create_publisher<geometry_msgs::msg::Vector3Stamped>("/qcar_sim/user_command", 1);
+  user_command_publisher_ = create_publisher<geometry_msgs::msg::Vector3Stamped>(publish_topic_, 1);
 
   // Timer to periodically publish the desired angle and velocity
   timer_ = create_wall_timer(std::chrono::duration<double>(timer_period),
