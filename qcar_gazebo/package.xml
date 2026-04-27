@@ -9,6 +9,29 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <!-- Build + runtime dependencies for C++ nodes -->
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+
+  <!-- Runtime dependencies used by launch files -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>joy</exec_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>rosgraph_msgs</exec_depend>
+  <exec_depend>qcar_description</exec_depend>
+  <exec_depend>qcar2_nodes</exec_depend>
+
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 
