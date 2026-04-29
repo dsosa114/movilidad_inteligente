@@ -1,8 +1,13 @@
 lane_detector:
   ros__parameters:
+    qos: sim
     # Input image topic consumed by lane_detector node
     subscribe_topic: /qcar_sim/csi_front/image_raw
     target_point_topic: /lane_target_point_m
+
+    # Input image resolution used by lane_detector camera model.
+    image_width: 640
+    image_height: 480
 
     # BEV resolution: pixels that represent 1 meter.
     # Larger value => more detail and larger BEV image.
@@ -18,21 +23,33 @@ lane_detector:
       - 0.103908
       - 0.434
       - 0.103908
-      - 0.434 
-      - 0.0     
-
-    # Source ROI polygon in input image pixels (x, y), flattened as:
-    # [x0, y0, x1, y1, x2, y2, x3, y3]
-    roi_polygon_points_px:
+      - 0.434
       - 0.0
-      - 480.0
-      - 210.0
-      - 280.0
-      - 420.0
-      - 280.0
-      - 640.0
-      - 480.0
 
+    # Source ROI polygon as percentages of image size (x_pct, y_pct), flattened as:
+    # [x0, y0, x1, y1, x2, y2, x3, y3]
+    # Final pixel coordinates are computed as:
+    # x_px = x_pct * image_width, y_px = y_pct * image_height
+    roi_polygon_points_pct:
+      - 0.0
+      - 1.0
+      - 0.328125
+      - 0.583333
+      - 0.65625
+      - 0.583333
+      - 1.0
+      - 1.0
+
+    # Optional legacy ROI in pixels. If set with 8 values, it overrides roi_polygon_points_pct.
+    # roi_polygon_points_px: []
+      # - 0.0
+      # - 480.0
+      # - 210.0
+      # - 280.0
+      # - 420.0
+      # - 280.0
+      # - 640.0
+      # - 480.0
     # Rear axle target conversion parameters.
     # target_y_rear = target_y_camera + camera_to_rear_axle_forward_m
     # target_x_rear = target_x_camera + camera_to_rear_axle_lateral_m
