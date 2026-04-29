@@ -4,6 +4,10 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Float32MultiArray
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
+
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy
+from rclpy.qos import QoSHistoryPolicy, QoSDurabilityPolicy
+
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
@@ -12,8 +16,11 @@ class LaneDetector(Node):
     def __init__(self):
         super().__init__('lane_detector')
         # 1. Declare the parameter with a default value
+        self.declare_parameter('qos', 'sim')
         self.declare_parameter('subscribe_topic', '/camera/csi_image')
         self.declare_parameter('target_point_topic', '/lane_target_point_m')
+        self.declare_parameter('image_width', 640)
+        self.declare_parameter('image_height', 480)
         self.declare_parameter('bev_pixels_per_meter', 1000.0)
         self.declare_parameter('bev_dst_points_m', [
             0.0, 0.0,
@@ -21,12 +28,14 @@ class LaneDetector(Node):
             0.309683, 0.103908,
             0.309683, 0.0,
         ])
-        self.declare_parameter('roi_polygon_points_px', [
-            0.0, 460.0,
-            240.0, 280.0,
-            390.0, 280.0,
-            640.0, 460.0,
+        self.declare_parameter('roi_polygon_points_pct', [
+            0.0, 0.958333,
+            0.375, 0.583333,
+            0.609375, 0.583333,
+            1.0, 0.958333,
         ])
+        # Backward compatibility: if provided (8 values), it overrides percentage ROI.
+        self.declare_parameter('roi_polygon_points_px', [])
         self.declare_parameter('camera_to_rear_axle_forward_m', 0.323)
         self.declare_parameter('camera_to_rear_axle_lateral_m', 0.0)
         self.declare_parameter('lane_half_width_px', 50.0)
@@ -40,11 +49,22 @@ class LaneDetector(Node):
 
         self.group = ReentrantCallbackGroup()
 
+        self.qcar_qos_profile = QoSProfile(
+				reliability   = QoSReliabilityPolicy.BEST_EFFORT,
+				history 	  = QoSHistoryPolicy.KEEP_LAST,
+				durability    = QoSDurabilityPolicy.VOLATILE,
+				depth 		  = 10)
+        
+        if self.get_parameter('qos').get_parameter_value().string_value == 'real':
+            selected_qos = self.qcar_qos_profile
+        else:
+            selected_qos = QoSProfile(depth=10) 
+        
         self.subscription = self.create_subscription(
             Image,
             topic_name,
             self.listener_callback,
-            10,
+            selected_qos,
             callback_group=self.group)
 
         self.lane_pub = self.create_publisher(
@@ -56,8 +76,10 @@ class LaneDetector(Node):
 
         hfov = 160 # Horizontal Field of View in degrees
         vfov = 120 # Vertical Field of View in degrees
-        img_width = 640 # Image width in pixels
-        img_height = 480 # Image height in pixels
+        self.image_width = max(1, int(self.get_parameter('image_width').value))
+        self.image_height = max(1, int(self.get_parameter('image_height').value))
+        img_width = self.image_width
+        img_height = self.image_height
         fx = (img_width / 2) / np.tan(np.radians(hfov / 2)) # Focal length in pixels
         fy = (img_height / 2) / np.tan(np.radians(vfov / 2)) # Focal length in pixels
         self.K = np.array([[fx, 0, img_width / 2],
@@ -80,7 +102,15 @@ class LaneDetector(Node):
         self.bev_dst_points_m = np.array(bev_dst_points_flat, dtype=np.float32).reshape((4, 2))
 
         roi_polygon_points_flat = self.get_parameter('roi_polygon_points_px').value
-        self.roi_polygon_points_px = np.array(roi_polygon_points_flat, dtype=np.float32).reshape((4, 2))
+        if len(roi_polygon_points_flat) == 8:
+            self.roi_polygon_points_px = np.array(roi_polygon_points_flat, dtype=np.float32).reshape((4, 2))
+        else:
+            roi_polygon_points_pct_flat = self.get_parameter('roi_polygon_points_pct').value
+            roi_polygon_points_pct = np.array(roi_polygon_points_pct_flat, dtype=np.float32).reshape((4, 2))
+            self.roi_polygon_points_px = np.column_stack((
+                roi_polygon_points_pct[:, 0] * img_width,
+                roi_polygon_points_pct[:, 1] * img_height,
+            )).astype(np.float32)
 
         self.camera_to_rear_axle_forward_m = float(self.get_parameter('camera_to_rear_axle_forward_m').value)
         self.camera_to_rear_axle_lateral_m = float(self.get_parameter('camera_to_rear_axle_lateral_m').value)
@@ -106,7 +136,9 @@ class LaneDetector(Node):
         # Yellow lane color range in HLS
         self.yellow_lower = np.array([15, 30, 115], dtype=np.uint8)
         self.yellow_upper = np.array([35, 204, 255], dtype=np.uint8)
-        self.get_logger().info(f'Lane Detector Node has been started. ROI: {self.K}')
+        self.get_logger().info(
+            f'Lane Detector Node has been started. image=({img_width}x{img_height}) K={self.K}'
+        )
 
     def lane_average(self, image, lines):
         left_fits = []
