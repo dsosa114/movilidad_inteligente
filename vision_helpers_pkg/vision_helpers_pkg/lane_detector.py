@@ -7,6 +7,7 @@ from rclpy.executors import MultiThreadedExecutor
 
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from rclpy.qos import QoSHistoryPolicy, QoSDurabilityPolicy
+from rcl_interfaces.msg import SetParametersResult
 
 from cv_bridge import CvBridge
 import cv2
@@ -17,7 +18,7 @@ class LaneDetector(Node):
         super().__init__('lane_detector')
         # 1. Declare the parameter with a default value
         self.declare_parameter('qos', 'sim')
-        self.declare_parameter('subscribe_topic', '/camera/csi_image')
+        self.declare_parameter('subscribe_image_topic', '/camera/csi_image')
         self.declare_parameter('target_point_topic', '/lane_target_point_m')
         self.declare_parameter('image_width', 640)
         self.declare_parameter('image_height', 480)
@@ -42,9 +43,14 @@ class LaneDetector(Node):
         self.declare_parameter('lane_half_width_ema_alpha', 0.2)
         # Lateral bias: 0.0 = lane center, positive = toward left line (max ~0.9)
         self.declare_parameter('lane_lateral_bias', 0.0)
+        # Runtime-tunable HLS bounds (OpenCV format: H[0..180], L/S[0..255])
+        self.declare_parameter('gray_lower_hls', [30, 160, 0])
+        self.declare_parameter('gray_upper_hls', [180, 200, 40])
+        self.declare_parameter('yellow_lower_hls', [15, 30, 115])
+        self.declare_parameter('yellow_upper_hls', [35, 204, 255])
 
         # 2. Get the parameter value
-        topic_name = self.get_parameter('subscribe_topic').get_parameter_value().string_value
+        topic_name = self.get_parameter('subscribe_image_topic').get_parameter_value().string_value
         target_point_topic = self.get_parameter('target_point_topic').get_parameter_value().string_value
 
         self.group = ReentrantCallbackGroup()
@@ -129,16 +135,99 @@ class LaneDetector(Node):
             max(1, int(np.ceil(bev_width_m * self.bev_pixels_per_meter))),
             max(1, int(np.ceil(bev_height_m * self.bev_pixels_per_meter))),
         )
-        # White lane color range in HLS
-        self.gray_lower = np.array([30, 160, 0], dtype=np.uint8)
-        self.gray_upper = np.array([180, 200, 40], dtype=np.uint8)
-
-        # Yellow lane color range in HLS
-        self.yellow_lower = np.array([15, 30, 115], dtype=np.uint8)
-        self.yellow_upper = np.array([35, 204, 255], dtype=np.uint8)
+        self.gray_lower = None
+        self.gray_upper = None
+        self.yellow_lower = None
+        self.yellow_upper = None
+        self._load_hls_thresholds_from_params()
+        self._param_callback_handle = self.add_on_set_parameters_callback(self._on_parameter_update)
         self.get_logger().info(
             f'Lane Detector Node has been started. image=({img_width}x{img_height}) K={self.K}'
         )
+
+    def _sanitize_hls_triplet(self, value, fallback, param_name):
+        arr = np.asarray(value, dtype=np.float32).reshape(-1)
+        if arr.size != 3:
+            self.get_logger().warning(
+                f'{param_name} expects 3 values [H,L,S]. Keeping previous value.'
+            )
+            return fallback.copy()
+        return np.clip(np.rint(arr), 0, 255).astype(np.uint8)
+
+    def _normalize_hls_bounds(self, lower, upper, lane_name):
+        normalized_lower = np.minimum(lower, upper)
+        normalized_upper = np.maximum(lower, upper)
+        if not np.array_equal(lower, normalized_lower) or not np.array_equal(upper, normalized_upper):
+            self.get_logger().warning(
+                f'{lane_name} HLS bounds were swapped to keep lower <= upper per channel.'
+            )
+        return normalized_lower, normalized_upper
+
+    def _load_hls_thresholds_from_params(self):
+        default_gray_lower = np.array([30, 160, 0], dtype=np.uint8)
+        default_gray_upper = np.array([180, 200, 40], dtype=np.uint8)
+        default_yellow_lower = np.array([15, 30, 115], dtype=np.uint8)
+        default_yellow_upper = np.array([35, 204, 255], dtype=np.uint8)
+
+        gray_lower = self._sanitize_hls_triplet(
+            self.get_parameter('gray_lower_hls').value, default_gray_lower, 'gray_lower_hls'
+        )
+        gray_upper = self._sanitize_hls_triplet(
+            self.get_parameter('gray_upper_hls').value, default_gray_upper, 'gray_upper_hls'
+        )
+        yellow_lower = self._sanitize_hls_triplet(
+            self.get_parameter('yellow_lower_hls').value, default_yellow_lower, 'yellow_lower_hls'
+        )
+        yellow_upper = self._sanitize_hls_triplet(
+            self.get_parameter('yellow_upper_hls').value, default_yellow_upper, 'yellow_upper_hls'
+        )
+
+        self.gray_lower, self.gray_upper = self._normalize_hls_bounds(gray_lower, gray_upper, 'Gray')
+        self.yellow_lower, self.yellow_upper = self._normalize_hls_bounds(yellow_lower, yellow_upper, 'Yellow')
+
+    def _on_parameter_update(self, params):
+        gray_lower = self.gray_lower.copy()
+        gray_upper = self.gray_upper.copy()
+        yellow_lower = self.yellow_lower.copy()
+        yellow_upper = self.yellow_upper.copy()
+        has_hls_change = False
+
+        for param in params:
+            if param.name == 'gray_lower_hls':
+                try:
+                    gray_lower = self._sanitize_hls_triplet(param.value, gray_lower, param.name)
+                    has_hls_change = True
+                except Exception as exc:
+                    return SetParametersResult(successful=False, reason=str(exc))
+            elif param.name == 'gray_upper_hls':
+                try:
+                    gray_upper = self._sanitize_hls_triplet(param.value, gray_upper, param.name)
+                    has_hls_change = True
+                except Exception as exc:
+                    return SetParametersResult(successful=False, reason=str(exc))
+            elif param.name == 'yellow_lower_hls':
+                try:
+                    yellow_lower = self._sanitize_hls_triplet(param.value, yellow_lower, param.name)
+                    has_hls_change = True
+                except Exception as exc:
+                    return SetParametersResult(successful=False, reason=str(exc))
+            elif param.name == 'yellow_upper_hls':
+                try:
+                    yellow_upper = self._sanitize_hls_triplet(param.value, yellow_upper, param.name)
+                    has_hls_change = True
+                except Exception as exc:
+                    return SetParametersResult(successful=False, reason=str(exc))
+
+        if has_hls_change:
+            self.gray_lower, self.gray_upper = self._normalize_hls_bounds(gray_lower, gray_upper, 'Gray')
+            self.yellow_lower, self.yellow_upper = self._normalize_hls_bounds(yellow_lower, yellow_upper, 'Yellow')
+            self.get_logger().info(
+                'Updated HLS thresholds '
+                f'gray={self.gray_lower.tolist()}..{self.gray_upper.tolist()} '
+                f'yellow={self.yellow_lower.tolist()}..{self.yellow_upper.tolist()}'
+            )
+
+        return SetParametersResult(successful=True)
 
     def lane_average(self, image, lines):
         left_fits = []
@@ -305,6 +394,8 @@ class LaneDetector(Node):
                 # Hough
                 lines = cv2.HoughLinesP(masked_edges, 1, np.pi/180, threshold=50,
                         minLineLength=50, maxLineGap=25)
+                # lines = cv2.HoughLinesP(masked_edges, 1, np.pi/180, threshold=50,
+                #         minLineLength=150, maxLineGap=25)
 
                 # Extrapolation
                 left_line, right_line, center_line = self.lane_average(src, lines)

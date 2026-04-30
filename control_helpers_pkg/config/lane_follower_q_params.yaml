@@ -10,7 +10,7 @@ lane_follower_q:
     # Ld = clamp(lookahead_base + lookahead_speed_gain * |v_cmd|, lookahead_min, lookahead_max)
     lookahead_min: 0.16
     lookahead_max: 0.34
-    lookahead_base: 0.20
+    lookahead_base: 0.2
     lookahead_speed_gain: 0.80
 
     max_steering_angle: 0.50

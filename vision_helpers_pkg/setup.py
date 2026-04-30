@@ -30,7 +30,8 @@ setup(
         'console_scripts': [
             'img_processor = vision_helpers_pkg.image_processor:main',
             'img_converter = vision_helpers_pkg.image_converter:main',
-            'lane_detector = vision_helpers_pkg.lane_detector:main'
+            'lane_detector = vision_helpers_pkg.lane_detector:main',
+            'lane_hls_tuner = vision_helpers_pkg.lane_hls_tuner:main'
         ],
     },
 )
