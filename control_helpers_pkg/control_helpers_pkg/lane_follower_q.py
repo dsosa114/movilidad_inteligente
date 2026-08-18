@@ -4,6 +4,7 @@ from std_msgs.msg import Float32MultiArray
 from qcar2_interfaces.msg import MotorCommands
 from geometry_msgs.msg import Vector3Stamped
 import math
+import signal
 
 class LaneFollowerQ(Node):
     def __init__(self):
@@ -39,6 +40,7 @@ class LaneFollowerQ(Node):
         self.steering_sign = float(self.get_parameter('steering_sign').value)
 
         self.last_speed_command = 0.0
+        self._shutdown_requested = False
 
         self.subscription = self.create_subscription(
             Float32MultiArray, target_topic, self.target_callback, 10)
@@ -67,6 +69,13 @@ class LaneFollowerQ(Node):
             cmd.vector.y = 0.0  # steering
             self.cmd_pub.publish(cmd)
             self.last_speed_command = 0.0
+
+    def handle_shutdown(self, signal_name='shutdown'):
+        if self._shutdown_requested:
+            return
+        self._shutdown_requested = True
+        self.get_logger().info(f'Received {signal_name}, publishing stop command before shutdown.')
+        self.publish_stop()
 
     def target_callback(self, msg):
         data = msg.data
@@ -117,9 +126,30 @@ class LaneFollowerQ(Node):
 def main(args=None):
     rclpy.init(args=args)
     lane_follower_q = LaneFollowerQ()
-    rclpy.spin(lane_follower_q)
-    lane_follower_q.destroy_node()
-    rclpy.shutdown()
+
+    previous_sigint = signal.getsignal(signal.SIGINT)
+    previous_sigterm = signal.getsignal(signal.SIGTERM)
+
+    def _signal_handler(signum, _frame):
+        signal_name = signal.Signals(signum).name
+        lane_follower_q.handle_shutdown(signal_name)
+        if rclpy.ok():
+            rclpy.shutdown()
+
+    signal.signal(signal.SIGINT, _signal_handler)
+    signal.signal(signal.SIGTERM, _signal_handler)
+
+    try:
+        rclpy.spin(lane_follower_q)
+    except KeyboardInterrupt:
+        lane_follower_q.handle_shutdown('KeyboardInterrupt')
+    finally:
+        signal.signal(signal.SIGINT, previous_sigint)
+        signal.signal(signal.SIGTERM, previous_sigterm)
+        lane_follower_q.handle_shutdown('finalization')
+        lane_follower_q.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

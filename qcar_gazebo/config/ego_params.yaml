@@ -21,4 +21,4 @@
     max_effort: 0.5649 #5.12766 # Maximum wheel torque [Nm]
 
     #Publish topic
-    publish_topic: /qcar_sim/user_command
+    publish_topic: /qcar/user_command

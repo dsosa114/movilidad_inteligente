@@ -2,7 +2,7 @@ lane_detector:
   ros__parameters:
     qos: sim
     # Input image topic consumed by lane_detector node
-    subscribe_topic: /qcar_sim/csi_front/image_raw
+    subscribe_image_topic: /qcar_sim/csi_front/image_raw
     target_point_topic: /lane_target_point_m
 
     # Input image resolution used by lane_detector camera model.
@@ -16,10 +16,11 @@ lane_detector:
 
     # Destination BEV quadrilateral in meters (x, y) flattened as:
     # [x0, y0, x1, y1, x2, y2, x3, y3]
+    # 1.1 0.3 0.38
     bev_dst_points_m:
       - 0.0
       - 0.0
-      - 0.0
+      - 0.0 #0.0
       - 0.103908
       - 0.434
       - 0.103908
@@ -68,3 +69,11 @@ lane_detector:
     # 0.9 = very close to the left line (max safe value)
     # Negative values bias toward the right line.
     lane_lateral_bias: 0.25
+
+    # Runtime-tunable HLS segmentation thresholds.
+    # OpenCV HLS ranges: H [0..180], L [0..255], S [0..255]
+    # Keep each lower bound <= upper bound per channel.
+    gray_lower_hls: [30, 160, 0]
+    gray_upper_hls: [180, 200, 40]
+    yellow_lower_hls: [15, 30, 40]
+    yellow_upper_hls: [45, 230, 255]
