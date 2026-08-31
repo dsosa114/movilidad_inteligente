@@ -1,5 +1,8 @@
 # A Guide to Configuring WSL2 for ROS2 on Windows 11
 
+## 0. Update Windows
+It is strongly recommended to install the latest Windows updates to avoid WSL installation issues.
+
 ## 1. Install Windows Terminal
 First, I recommend installing **Windows Terminal** if you haven’t already.
 
@@ -9,13 +12,13 @@ First, I recommend installing **Windows Terminal** if you haven’t already.
 Open PowerShell as an **Administrator** (right-click and select `Run as administrator`), enter the following command, wait for the installation to finish, and then **restart your machine**.
 
 ```powershell
-wsl --install
+wsl --install -d Ubuntu-24.04
 ```
 
-WSL installs the latest Long-Term Support (LTS) version of Ubuntu by default, which is ideal for a ROS2 development environment. If the installation fails to include Ubuntu, you can install it manually using this command:
+WSL installs the latest Long-Term Support (LTS) version of Ubuntu by default (currently Ubuntu 26.04). To avoid this, it is important to specify which Ubuntu version you want to install. I strongly recommend installing Ubuntu 24.04, which is ideal for a complete ROS2 development environment. You can install other Ubuntu distributions by specifying the desired version with the following command:
 
 ```powershell
-wsl --install -d Ubuntu-24.04
+wsl --install -d Ubuntu-${VERSION}
 ```
 
 ### 2.1 Post-Installation
